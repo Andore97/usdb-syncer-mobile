@@ -84,24 +84,32 @@ class Library(private val ctx: Application) {
 
     private class Child(val docId: String, val name: String, val isDir: Boolean)
 
-    private fun children(tree: Uri, docId: String): List<Child>? = try {
-        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId)
-        val out = ArrayList<Child>()
-        ctx.contentResolver.query(
-            uri,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-            ),
-            null, null, null,
-        )?.use { c ->
-            while (c.moveToNext()) {
-                out += Child(c.getString(0), c.getString(1) ?: "", c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR)
+    private fun children(tree: Uri, docId: String): List<Child>? {
+        return try {
+            val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId)
+            val out = ArrayList<Child>()
+            val cursor = ctx.contentResolver.query(
+                uri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE,
+                ),
+                null, null, null,
+            ) ?: return null
+            cursor.use { c ->
+                while (c.moveToNext()) {
+                    out += Child(
+                        c.getString(0), c.getString(1) ?: "",
+                        c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                    )
+                }
             }
-        } ?: return null
-        out
-    } catch (e: Exception) { null }
+            out
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     suspend fun scan() = withContext(Dispatchers.IO) {
         val treeStr = Graph.prefs.tree.value
